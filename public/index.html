@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TrailMind — Identify birds, plants & mushrooms offline using open-source AI. No internet, no cloud, just you and nature." />
+  <title>TrailMind 🌿 — Offline Nature AI</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#2d5a27" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+    :root {
+      --green-dark: #1a3a16;
+      --green-mid: #2d5a27;
+      --green-light: #4a8c3f;
+      --green-pale: #e8f5e2;
+      --amber: #d4880a;
+      --amber-light: #fdf3dc;
+      --text: #1c1c1e;
+      --text-soft: #5a5a5a;
+      --white: #ffffff;
+      --card-bg: #f9fafb;
+      --border: #d4e4cf;
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(45, 90, 39, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--green-pale);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    header .logo { font-size: 28px; }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    header p { font-size: 12px; opacity: 0.75; margin-top: 1px; }
+    .offline-badge {
+      margin-left: auto;
+      background: #4caf50;
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      transition: background 0.3s;
+    }
+    .offline-badge.offline { background: #ff9800; }
+
+    /* ── Main ── */
+    main { flex: 1; padding: 20px; max-width: 640px; margin: 0 auto; width: 100%; }
+
+    /* ── Model config bar ── */
+    .config-bar {
+      background: var(--amber-light);
+      border: 1px solid #e8c97a;
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .config-bar label { font-size: 13px; font-weight: 600; color: var(--amber); white-space: nowrap; }
+    .config-bar input, .config-bar select {
+      flex: 1;
+      min-width: 120px;
+      border: 1px solid #e8c97a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      background: white;
+      outline: none;
+    }
+    .config-bar input:focus, .config-bar select:focus { border-color: var(--amber); }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      background: var(--white);
+      border: 2px dashed var(--green-light);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      background: var(--green-pale);
+      border-color: var(--green-dark);
+    }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-zone .icon { font-size: 48px; margin-bottom: 12px; display: block; }
+    .upload-zone h2 { font-size: 16px; color: var(--green-mid); font-weight: 600; }
+    .upload-zone p { font-size: 13px; color: var(--text-soft); margin-top: 6px; }
+
+    /* ── Preview ── */
+    #preview-wrap {
+      display: none;
+      background: var(--white);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    #preview-img { width: 100%; max-height: 320px; object-fit: cover; display: block; }
+    #preview-actions {
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--green-mid);
+      color: white;
+      flex: 1;
+    }
+    .btn-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+    .btn-primary:disabled { background: #9cba97; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-soft);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--green-pale); }
+
+    /* ── Result card ── */
+    #result-card {
+      display: none;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 20px;
+      animation: fadeUp 0.3s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .result-header {
+      background: var(--green-dark);
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-header .result-icon { font-size: 24px; }
+    .result-header h3 { font-size: 16px; font-weight: 700; }
+    .result-header .model-badge {
+      margin-left: auto;
+      background: rgba(255,255,255,0.2);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+    }
+    #result-body { padding: 20px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .result-meta {
+      padding: 12px 20px;
+      background: var(--green-pale);
+      font-size: 12px;
+      color: var(--text-soft);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 16px;
+    }
+    .result-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── History ── */
+    #history-section { margin-bottom: 40px; }
+    #history-section h2 { font-size: 15px; font-weight: 700; color: var(--green-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-item {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
+    .history-item:hover { box-shadow: var(--shadow); }
+    .history-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .history-text h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .history-text p { font-size: 12px; color: var(--text-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .history-time { margin-left: auto; font-size: 11px; color: var(--text-soft); white-space: nowrap; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Setup guide ── */
+    .setup-guide {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .setup-guide h3 { font-size: 15px; font-weight: 700; color: var(--green-dark); margin-bottom: 12px; }
+    .setup-guide ol { padding-left: 18px; }
+    .setup-guide li { font-size: 13px; color: var(--text-soft); margin-bottom: 8px; line-height: 1.5; }
+    .setup-guide code {
+      background: var(--green-pale);
+      color: var(--green-dark);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--green-dark);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 16px 20px;
+      font-size: 12px;
+      color: var(--text-soft);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--green-light); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🌿</span>
+  <div>
+    <h1>TrailMind</h1>
+    <p>Offline Nature AI Companion</p>
+  </div>
+  <div class="offline-badge" id="connectivity-badge">● ONLINE</div>
+</header>
+
+<main>
+
+  <!-- Ollama config -->
+  <div class="config-bar">
+    <label>🤖 Ollama</label>
+    <input type="text" id="ollama-url" value="http://localhost:11434" placeholder="Ollama URL" />
+    <select id="model-select">
+      <option value="llama3.2-vision">llama3.2-vision</option>
+      <option value="llava">llava</option>
+      <option value="moondream">moondream</option>
+      <option value="llava-phi3">llava-phi3</option>
+    </select>
+  </div>
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*" capture="environment" />
+    <span class="icon">📸</span>
+    <h2>Tap to photograph or upload</h2>
+    <p>Snap a bird, plant, mushroom, or any wildlife<br/>Works offline — your data never leaves your device</p>
+  </div>
+
+  <!-- Preview + action -->
+  <div id="preview-wrap">
+    <img id="preview-img" alt="Selected photo" />
+    <div id="preview-actions">
+      <button class="btn btn-primary" id="identify-btn" onclick="identifyImage()">
+        <span>🔍</span> <span id="btn-text">Identify with AI</span>
+      </button>
+      <button class="btn btn-secondary" onclick="clearImage()">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-card">
+    <div class="result-header">
+      <span class="result-icon">🌿</span>
+      <h3>AI Identification Result</h3>
+      <span class="model-badge" id="result-model-badge">llama3.2-vision</span>
+    </div>
+    <div id="result-body"></div>
+    <div class="result-meta">
+      <span>⏱️ <span id="result-time"></span></span>
+      <span>🔒 Processed locally</span>
+      <span>📡 No data sent to cloud</span>
+    </div>
+  </div>
+
+  <!-- Setup guide -->
+  <div class="setup-guide" id="setup-guide">
+    <h3>⚡ Quick Setup (one-time)</h3>
+    <ol>
+      <li>Install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> — runs open-weight AI locally on your machine.</li>
+      <li>Pull a vision model: <code>ollama pull llama3.2-vision</code></li>
+      <li>Enable CORS for browser access:<br/><code>OLLAMA_ORIGINS=* ollama serve</code></li>
+      <li>Come back here, take a photo on the trail, and get instant identification — no internet needed!</li>
+    </ol>
+  </div>
+
+  <!-- History -->
+  <div id="history-section" style="display:none">
+    <h2>🗂 Recent Identifications</h2>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+</main>
+
+<footer>
+  <p>TrailMind runs entirely on <a href="https://ollama.com" target="_blank">Ollama</a> — open-source, local, private.</p>
+  <p style="margin-top:4px">Built for Hacktoberfest 2026 · MIT License · <a href="https://github.com" target="_blank">View on GitHub</a></p>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+  // ── Service Worker registration ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW failed:', err));
+    });
+  }
+
+  // ── Connectivity badge ──
+  const badge = document.getElementById('connectivity-badge');
+  function updateConnectivity() {
+    if (navigator.onLine) {
+      badge.textContent = '● ONLINE';
+      badge.classList.remove('offline');
+    } else {
+      badge.textContent = '● OFFLINE';
+      badge.classList.add('offline');
+    }
+  }
+  window.addEventListener('online', updateConnectivity);
+  window.addEventListener('offline', updateConnectivity);
+  updateConnectivity();
+
+  // ── State ──
+  let currentBase64 = null;
+  let currentFileName = '';
+  const history = JSON.parse(localStorage.getItem('trailmind_history') || '[]');
+
+  // ── File input ──
+  const fileInput = document.getElementById('file-input');
+  const uploadZone = document.getElementById('upload-zone');
+  const previewWrap = document.getElementById('preview-wrap');
+  const previewImg = document.getElementById('preview-img');
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    handleFile(file);
+  });
+
+  // Drag & drop
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(file);
+  });
+
+  function handleFile(file) {
+    currentFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const dataUrl = evt.target.result;
+      previewImg.src = dataUrl;
+      previewWrap.style.display = 'block';
+      uploadZone.style.display = 'none';
+      document.getElementById('result-card').style.display = 'none';
+      // Extract base64 (strip data:image/...;base64,)
+      currentBase64 = dataUrl.split(',')[1];
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImage() {
+    currentBase64 = null;
+    currentFileName = '';
+    previewWrap.style.display = 'none';
+    uploadZone.style.display = 'block';
+    document.getElementById('result-card').style.display = 'none';
+    fileInput.value = '';
+  }
+
+  // ── Identify ──
+  async function identifyImage() {
+    if (!currentBase64) return showToast('Please select an image first.');
+
+    const ollamaUrl = document.getElementById('ollama-url').value.trim().replace(/\/$/, '');
+    const model = document.getElementById('model-select').value;
+    const btn = document.getElementById('identify-btn');
+    const btnText = document.getElementById('btn-text');
+
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+    const prompt = `You are a field naturalist expert. Analyze this photo taken outdoors.
+
+Provide a structured identification:
+
+**Species / Subject**: [Common name and scientific name if identifiable]
+**Category**: [Bird / Plant / Mushroom / Insect / Mammal / Landscape / Other]
+**Confidence**: [High / Medium / Low] — explain briefly why
+
+**Key Identifying Features**:
+- List 3-5 observable features that led to this identification
+
+**Interesting Facts**:
+- Share 2-3 fascinating facts about this species
+
+**Trail Notes** (if applicable):
+- Best season to spot it
+- Habitat preferences
+- Any safety notes (edible/toxic/etc.)
+
+If you cannot make a confident identification, explain what family or type it might belong to and what additional photos would help.`;
+
+    const startTime = Date.now();
+
+    try {
+      const res = await fetch(`${ollamaUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt, images: [currentBase64] }],
+          stream: false
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Ollama error ${res.status}: ${err}`);
+      }
+
+      const data = await res.json();
+      const answer = data.message?.content || data.response || 'No response received.';
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      // Display result
+      document.getElementById('result-card').style.display = 'block';
+      document.getElementById('result-body').textContent = answer;
+      document.getElementById('result-time').textContent = `${elapsed}s`;
+      document.getElementById('result-model-badge').textContent = model;
+
+      // Save to history
+      const entry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        filename: currentFileName,
+        thumb: previewImg.src,
+        model,
+        result: answer,
+        elapsed
+      };
+      history.unshift(entry);
+      if (history.length > 20) history.pop();
+      localStorage.setItem('trailmind_history', JSON.stringify(history));
+      renderHistory();
+
+      showToast('✅ Identification complete!');
+
+    } catch (err) {
+      console.error(err);
+      let msg = err.message;
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        msg = '⚠️ Cannot reach Ollama. Make sure it\'s running:\n\nOLLAMA_ORIGINS=* ollama serve\n\nThen pull a model:\nollama pull llama3.2-vision';
+      }
+      document.getElementById('result-card').style.display = 'block';
+      document.getElementById('result-body').textContent = msg;
+      document.getElementById('result-model-badge').textContent = 'Error';
+    } finally {
+      btn.disabled = false;
+      btnText.innerHTML = '🔍 Identify with AI';
+    }
+  }
+
+  // ── History rendering ──
+  function renderHistory() {
+    const section = document.getElementById('history-section');
+    const list = document.getElementById('history-list');
+    if (history.length === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = history.slice(0, 5).map(h => {
+      const date = new Date(h.timestamp);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const firstLine = h.result.split('\n')[0].replace(/\*\*/g, '').trim();
+      return `
+        <div class="history-item" onclick="showHistoryEntry(${h.id})">
+          <img class="history-thumb" src="${h.thumb}" alt="Thumbnail" />
+          <div class="history-text">
+            <h4>${firstLine.substring(0, 50)}${firstLine.length > 50 ? '…' : ''}</h4>
+            <p>${h.result.substring(0, 100)}…</p>
+          </div>
+          <span class="history-time">${timeStr}</span>
+        </div>`;
+    }).join('');
+  }
+
+  function showHistoryEntry(id) {
+    const entry = history.find(h => h.id === id);
+    if (!entry) return;
+    previewImg.src = entry.thumb;
+    previewWrap.style.display = 'block';
+    uploadZone.style.display = 'none';
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('result-body').textContent = entry.result;
+    document.getElementById('result-time').textContent = `${entry.elapsed}s`;
+    document.getElementById('result-model-badge').textContent = entry.model;
+  }
+
+  // ── Toast ──
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── Init ──
+  renderHistory();
+</script>
+
+</body>
+</html>

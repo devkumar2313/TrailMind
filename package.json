@@ -1,0 +1,28 @@
+{
+  "name": "trailmind",
+  "version": "1.0.0",
+  "description": "TrailMind — Offline-first nature AI companion. Identify birds, plants & wildlife using open-source Ollama models. No internet needed.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "serve": "^14.2.0"
+  },
+  "keywords": [
+    "ollama",
+    "open-source-ai",
+    "nature",
+    "offline",
+    "pwa",
+    "llama",
+    "bird-identification",
+    "plant-identification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
